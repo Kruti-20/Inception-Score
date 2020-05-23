@@ -3,9 +3,13 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+%tensorflow_version 1.3.0
+!pip install pillow==6.1.0
+!pip install scipy==1.1.0
 import os.path
 import sys
 import tarfile
+import imageio
 
 import numpy as np
 from six.moves import urllib
@@ -87,9 +91,9 @@ def _init_inception():
                     new_shape.append(None)
                 else:
                     new_shape.append(s)
-            o._shape = tf.TensorShape(new_shape)
+            o.set_shape(tf.TensorShape(new_shape))
     w = sess.graph.get_operation_by_name("softmax/logits/MatMul").inputs[1]
-    logits = tf.matmul(tf.squeeze(pool3), w)
+    logits = tf.matmul(tf.squeeze(pool3, [1, 2]), w)
     softmax = tf.nn.softmax(logits)
 
 if __name__=='__main__':
@@ -97,9 +101,15 @@ if __name__=='__main__':
       _init_inception()
       
     def get_images(filename):
-        return scipy.misc.imread(filename)
+        return imageio.imread(filename)
         
-    filenames = glob.glob(os.path.join('./data', '*.*'))
+    os.chdir('/content/gdrive/My Drive/Inception-Score/data')
+    ! pwd
+    filenames = glob.glob('*.png')
+    print(filenames)
     images = [get_images(filename) for filename in filenames]
-    print(len(images))
-    print(get_inception_score(images))
+    modified_images = [np.asarray(image) for image in images]
+    print(len(modified_images))
+    print(type(modified_images))
+    print(type(modified_images[0]))
+    print(get_inception_score(modified_images))
