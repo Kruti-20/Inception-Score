@@ -110,6 +110,4 @@ if __name__=='__main__':
     images = [get_images(filename) for filename in filenames]
     modified_images = [np.asarray(image) for image in images]
     print(len(modified_images))
-    print(type(modified_images))
-    print(type(modified_images[0]))
     print(get_inception_score(modified_images))
