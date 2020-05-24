@@ -3,9 +3,14 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+from google.colab import drive
+drive.mount('/content/gdrive')
+
 %tensorflow_version 1.3.0
+%pylab inline
 !pip install pillow==6.1.0
 !pip install scipy==1.1.0
+
 import os.path
 import sys
 import tarfile
@@ -18,6 +23,7 @@ import glob
 import scipy.misc
 import math
 import sys
+import matplotlib.pyplot as plt
 
 MODEL_DIR = '/tmp/imagenet'
 DATA_URL = 'http://download.tensorflow.org/models/image/imagenet/inception-2015-12-05.tgz'
@@ -31,20 +37,23 @@ def get_inception_score(images, splits=10):
   assert(len(images[0].shape) == 3)
   assert(np.max(images[0]) > 10)
   assert(np.min(images[0]) >= 0.0)
+
+  
   inps = []
   for img in images:
     img = img.astype(np.float32)
     inps.append(np.expand_dims(img, 0))
+
   bs = 100
   with tf.Session() as sess:
     preds = []
     n_batches = int(math.ceil(float(len(inps)) / float(bs)))
     for i in range(n_batches):
-        sys.stdout.write(".")
-        sys.stdout.flush()
+        #sys.stdout.write(".")
+        #sys.stdout.flush()
         inp = inps[(i * bs):min((i + 1) * bs, len(inps))]
         inp = np.concatenate(inp, 0)
-        pred = sess.run(softmax, {'ExpandDims:0': inp})
+        pred = sess.run(softmax, {'InputTensor:0': inp})
         preds.append(pred)
     preds = np.concatenate(preds, 0)
     scores = []
@@ -54,7 +63,8 @@ def get_inception_score(images, splits=10):
       kl = np.mean(np.sum(kl, 1))
       scores.append(np.exp(kl))
     return np.mean(scores), np.std(scores)
-
+  
+  
 # This function is called automatically.
 def _init_inception():
   global softmax
@@ -76,7 +86,12 @@ def _init_inception():
       MODEL_DIR, 'classify_image_graph_def.pb'), 'rb') as f:
     graph_def = tf.GraphDef()
     graph_def.ParseFromString(f.read())
-    _ = tf.import_graph_def(graph_def, name='')
+    # Import model with a modification in the input tensor to accept arbitrary
+    # batch size.
+    input_tensor = tf.placeholder(tf.float32, shape=[None, None, None, 3],
+                                  name='InputTensor')
+    _ = tf.import_graph_def(graph_def, name='',
+                            input_map={'ExpandDims:0':input_tensor})
   # Works with an arbitrary minibatch size.
   with tf.Session() as sess:
     pool3 = sess.graph.get_tensor_by_name('pool_3:0')
@@ -95,6 +110,7 @@ def _init_inception():
     w = sess.graph.get_operation_by_name("softmax/logits/MatMul").inputs[1]
     logits = tf.matmul(tf.squeeze(pool3, [1, 2]), w)
     softmax = tf.nn.softmax(logits)
+    
 
 if __name__=='__main__':
     if softmax is None:
